@@ -1,0 +1,35 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+before_script:
+  - echo $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+
+build:
+  stage: build
+  script:
+    - docker build -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
+
+test:
+  stage: test
+  services:
+    - postgres:15
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: user
+    POSTGRES_PASSWORD: secret
+    POSTGRES_HOST: postgres
+  script:
+    - echo "Run your Jest/Mocha tests here with PostgreSQL connection"
+    - exit 0
+
+deploy:
+  stage: deploy
+  environment: production
+  script:
+    - ssh user@your-server "docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY && docker pull $DOCKER_IMAGE && docker stop express_app || true && docker rm express_app || true && docker run -d --name express_app -p 3000:3000 -e DB_HOST=your-db-host -e DB_PORT=5432 -e DB_NAME=products_db -e DB_USER=user -e DB_PASSWORD=secret $DOCKER_IMAGE"
